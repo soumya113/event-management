@@ -79,9 +79,7 @@ const Customers = () => {
         customer.name.toLowerCase().includes(search.toLowerCase()) ||
         customer.mobile.includes(search);
 
-      const matchStatus = status
-        ? customer.eventStatus === status
-        : true;
+      const matchStatus = status ? customer.eventStatus === status : true;
 
       return matchSearch && matchStatus;
     });
@@ -91,13 +89,11 @@ const Customers = () => {
   // Pagination
   //---------------------------------------
 
-  const totalPages = Math.ceil(
-    filteredCustomers.length / pageSize
-  );
+  const totalPages = Math.ceil(filteredCustomers.length / pageSize);
 
   const paginatedCustomers = filteredCustomers.slice(
     (currentPage - 1) * pageSize,
-    currentPage * pageSize
+    currentPage * pageSize,
   );
 
   //---------------------------------------
@@ -106,9 +102,7 @@ const Customers = () => {
 
   const handleDelete = async () => {
     try {
-      await apiService.delete(
-        apiPath.CUSTOMER_BY_ID(selectedCustomer.id)
-      );
+      await apiService.delete(apiPath.CUSTOMER_BY_ID(selectedCustomer.id));
 
       toast.success("Customer Deleted");
 
@@ -144,18 +138,29 @@ const Customers = () => {
       header: "Project",
       accessor: "projectName",
     },
+    {
+      header: "QR Code",
+      accessor: "qrCode",
+    },
 
     {
       header: "QR",
-      accessor: "qrCode",
+
+      render: (row) => (
+        <img
+          src={row.qrImage}
+          alt="QR"
+          width={60}
+          height={60}
+          style={{ border: "1px solid #ddd" }}
+        />
+      ),
     },
 
     {
       header: "Status",
 
-      render: (row) => (
-        <StatusBadge status={row.eventStatus} />
-      ),
+      render: (row) => <StatusBadge status={row.eventStatus} />,
     },
 
     {
@@ -240,11 +245,7 @@ const Customers = () => {
       <FormModal
         show={showForm}
         onHide={() => setShowForm(false)}
-        title={
-          selectedCustomer
-            ? "Edit Customer"
-            : "Add Customer"
-        }
+        title={selectedCustomer ? "Edit Customer" : "Add Customer"}
       >
         <CustomerForm
           customer={selectedCustomer}
@@ -264,9 +265,7 @@ const Customers = () => {
         submitText="Close"
         onSubmit={() => setShowDetails(false)}
       >
-        <CustomerDetails
-          customer={selectedCustomer}
-        />
+        <CustomerDetails customer={selectedCustomer} />
       </FormModal>
 
       {/* Delete */}

@@ -1,6 +1,6 @@
 import { http, HttpResponse } from "msw";
 import { customers, booths, statusHistory } from "./data";
-import {adminCredential} from "../config/Constant"
+import { adminCredential,jwtToken } from "../config/Constant";
 
 let customerData = [...customers];
 let boothData = [...booths];
@@ -11,19 +11,16 @@ const dashboard = () => {
     totalCustomers: customerData.length,
 
     checkedInCustomers: customerData.filter(
-      (c) => c.eventStatus === "Checked-In"
+      (c) => c.eventStatus === "Checked-In",
     ).length,
 
-    waitingCustomers: customerData.filter(
-      (c) => c.eventStatus === "Waiting"
-    ).length,
+    waitingCustomers: customerData.filter((c) => c.eventStatus === "Waiting")
+      .length,
 
-    assignedCustomers: customerData.filter(
-      (c) => c.assignedBooth
-    ).length,
+    assignedCustomers: customerData.filter((c) => c.assignedBooth).length,
 
     completedCustomers: customerData.filter(
-      (c) => c.eventStatus === "Completed"
+      (c) => c.eventStatus === "Completed",
     ).length,
   };
 };
@@ -40,7 +37,7 @@ export const handlers = [
       body.password === adminCredential.password
     ) {
       return HttpResponse.json({
-        token: "dummy-jwt-token",
+        token: jwtToken,
         user: {
           id: 1,
           name: "Admin User",
@@ -53,7 +50,7 @@ export const handlers = [
       {
         message: "Invalid Credentials",
       },
-      { status: 401 }
+      { status: 401 },
     );
   }),
 
@@ -81,7 +78,7 @@ export const handlers = [
       result = result.filter(
         (c) =>
           c.name.toLowerCase().includes(search.toLowerCase()) ||
-          c.mobile.includes(search)
+          c.mobile.includes(search),
       );
     }
 
@@ -97,14 +94,12 @@ export const handlers = [
   //----------------------------------------------------
 
   http.get("/api/customers/:id", ({ params }) => {
-    const customer = customerData.find(
-      (c) => c.id === Number(params.id)
-    );
+    const customer = customerData.find((c) => c.id === Number(params.id));
 
     if (!customer) {
       return HttpResponse.json(
         { message: "Customer not found" },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -127,6 +122,8 @@ export const handlers = [
 
     customerData.push(customer);
 
+    console.log("After POST", customerData);
+
     return HttpResponse.json(customer, {
       status: 201,
     });
@@ -139,15 +136,21 @@ export const handlers = [
   http.put("/api/customers/:id", async ({ request, params }) => {
     const body = await request.json();
 
-    customerData = customerData.map((customer) =>
-      customer.id === Number(params.id)
-        ? { ...customer, ...body }
-        : customer
-    );
+    const index = customerData.findIndex((c) => c.id === Number(params.id));
 
-    return HttpResponse.json({
-      message: "Updated Successfully",
-    });
+    if (index === -1) {
+      return HttpResponse.json(
+        { message: "Customer not found" },
+        { status: 404 },
+      );
+    }
+
+    customerData[index] = {
+      ...customerData[index],
+      ...body,
+    };
+
+    return HttpResponse.json(customerData[index]);
   }),
 
   //----------------------------------------------------
@@ -155,9 +158,7 @@ export const handlers = [
   //----------------------------------------------------
 
   http.delete("/api/customers/:id", ({ params }) => {
-    customerData = customerData.filter(
-      (c) => c.id !== Number(params.id)
-    );
+    customerData = customerData.filter((c) => c.id !== Number(params.id));
 
     return HttpResponse.json({
       message: "Deleted Successfully",
@@ -169,9 +170,7 @@ export const handlers = [
   //----------------------------------------------------
 
   http.get("/api/qr-codes/verify/:qrCode", ({ params }) => {
-    const customer = customerData.find(
-      (c) => c.qrCode === params.qrCode
-    );
+    const customer = customerData.find((c) => c.qrCode === params.qrCode);
 
     if (!customer) {
       return HttpResponse.json(
@@ -180,7 +179,7 @@ export const handlers = [
         },
         {
           status: 404,
-        }
+        },
       );
     }
 
@@ -191,7 +190,7 @@ export const handlers = [
         },
         {
           status: 400,
-        }
+        },
       );
     }
 
@@ -205,15 +204,10 @@ export const handlers = [
   http.post("/api/customers/check-in", async ({ request }) => {
     const { qrCode } = await request.json();
 
-    const customer = customerData.find(
-      (c) => c.qrCode === qrCode
-    );
+    const customer = customerData.find((c) => c.qrCode === qrCode);
 
     if (!customer) {
-      return HttpResponse.json(
-        { message: "Invalid QR" },
-        { status: 404 }
-      );
+      return HttpResponse.json({ message: "Invalid QR" }, { status: 404 });
     }
 
     customer.qrUsed = true;
@@ -230,7 +224,16 @@ export const handlers = [
   //----------------------------------------------------
 
   http.get("/api/booth-assignments", () => {
-    return HttpResponse.json(boothData);
+    const result = boothData.map((booth) => {
+      const customer = customerData.find((c) => c.id === booth.customerId);
+
+      return {
+        ...booth,
+        customerName: customer?.name || "",
+      };
+    });
+
+    return HttpResponse.json(result);
   }),
 
   //----------------------------------------------------
@@ -240,39 +243,67 @@ export const handlers = [
   http.post("/api/booth-assignments", async ({ request }) => {
     const body = await request.json();
 
-    const exists = boothData.find(
-      (b) =>
-        b.boothNumber === body.boothNumber &&
-        b.customerId !== null
+    //----------------------------------------
+    // Prevent duplicate booth
+    //----------------------------------------
+
+    const boothExists = boothData.find(
+      (b) => b.boothNumber === body.boothNumber && b.customerId !== null,
     );
 
-    if (exists) {
+    if (boothExists) {
       return HttpResponse.json(
         {
           message: "Booth already assigned",
         },
         {
           status: 400,
-        }
+        },
       );
     }
 
-    boothData.push({
+    //----------------------------------------
+    // Prevent customer duplicate assignment
+    //----------------------------------------
+
+    const customerAssigned = boothData.find(
+      (b) => b.customerId === body.customerId,
+    );
+
+    if (customerAssigned) {
+      return HttpResponse.json(
+        {
+          message: "Customer already has a booth",
+        },
+        {
+          status: 400,
+        },
+      );
+    }
+
+    //----------------------------------------
+
+    const assignment = {
       id: Date.now(),
       ...body,
-    });
+    };
 
-    const customer = customerData.find(
-      (c) => c.id === body.customerId
-    );
+    boothData.push(assignment);
+
+    //----------------------------------------
+    // Update customer
+    //----------------------------------------
+
+    const customer = customerData.find((c) => c.id === body.customerId);
 
     if (customer) {
       customer.assignedBooth = body.boothNumber;
+
       customer.eventStatus = "Assigned";
     }
 
-    return HttpResponse.json({
-      message: "Assigned Successfully",
+    return HttpResponse.json(assignment, {
+      status: 201,
     });
   }),
 
@@ -283,28 +314,115 @@ export const handlers = [
   http.put("/api/booth-assignments/:id", async ({ request, params }) => {
     const body = await request.json();
 
-    boothData = boothData.map((b) =>
-      b.id === Number(params.id)
-        ? { ...b, ...body }
-        : b
+    const assignment = boothData.find((b) => b.id === Number(params.id));
+
+    if (!assignment) {
+      return HttpResponse.json(
+        {
+          message: "Assignment not found",
+        },
+        {
+          status: 404,
+        },
+      );
+    }
+
+    //----------------------------------------
+    // Check duplicate booth
+    //----------------------------------------
+
+    const duplicate = boothData.find(
+      (b) => b.id !== Number(params.id) && b.boothNumber === body.boothNumber,
     );
 
+    if (duplicate) {
+      return HttpResponse.json(
+        {
+          message: "Booth already assigned",
+        },
+        {
+          status: 400,
+        },
+      );
+    }
+
+    //----------------------------------------
+    // Reset old customer
+    //----------------------------------------
+
+    const oldCustomer = customerData.find(
+      (c) => c.id === assignment.customerId,
+    );
+
+    if (oldCustomer) {
+      oldCustomer.assignedBooth = null;
+
+      oldCustomer.eventStatus = "Checked-In";
+    }
+
+    //----------------------------------------
+    // Update assignment
+    //----------------------------------------
+
+    assignment.customerId = body.customerId;
+
+    assignment.boothNumber = body.boothNumber;
+
+    assignment.salesManager = body.salesManager;
+
+    assignment.status = body.status;
+
+    //----------------------------------------
+    // Update new customer
+    //----------------------------------------
+
+    const newCustomer = customerData.find((c) => c.id === body.customerId);
+
+    if (newCustomer) {
+      newCustomer.assignedBooth = body.boothNumber;
+
+      newCustomer.eventStatus = "Assigned";
+    }
+
     return HttpResponse.json({
-      message: "Updated",
+      message: "Updated Successfully",
     });
   }),
-
   //----------------------------------------------------
   // DELETE BOOTH
   //----------------------------------------------------
-
   http.delete("/api/booth-assignments/:id", ({ params }) => {
-    boothData = boothData.filter(
-      (b) => b.id !== Number(params.id)
-    );
+    const assignment = boothData.find((b) => b.id === Number(params.id));
+
+    if (!assignment) {
+      return HttpResponse.json(
+        {
+          message: "Assignment not found",
+        },
+        {
+          status: 404,
+        },
+      );
+    }
+
+    //----------------------------------------
+    // Reset Customer
+    //----------------------------------------
+
+    const customer = customerData.find((c) => c.id === assignment.customerId);
+
+    if (customer) {
+      customer.assignedBooth = null;
+
+      customer.eventStatus = "Checked-In";
+    }
+
+    //----------------------------------------
+
+    boothData = boothData.filter((b) => b.id !== Number(params.id));
 
     return HttpResponse.json({
-      message: "Deleted",
+      message: "Assignment Deleted",
     });
   }),
 
@@ -315,14 +433,12 @@ export const handlers = [
   http.post("/api/customer-status", async ({ request }) => {
     const body = await request.json();
 
-    const customer = customerData.find(
-      (c) => c.id === body.customerId
-    );
+    const customer = customerData.find((c) => c.id === body.customerId);
 
     if (!customer) {
       return HttpResponse.json(
         { message: "Customer not found" },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -350,7 +466,7 @@ export const handlers = [
 
   http.get("/api/customer-status/:customerId", ({ params }) => {
     const history = historyData.filter(
-      (h) => h.customerId === Number(params.customerId)
+      (h) => h.customerId === Number(params.customerId),
     );
 
     return HttpResponse.json(history);

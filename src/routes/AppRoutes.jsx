@@ -5,6 +5,8 @@ import ProtectedRoute from "./ProtectedRoute";
 import Login from "../pages/Login/Login";
 import Dashboard from "../pages/Dashboard/Dashboard";
 import Customers from "../pages/Customer/Customers";
+import QRScanner from "../pages/QRScanner/QRScanner";
+import BoothAssignment from "../pages/BoothAssignment/BoothAssignment"
 
 
 const AppRoutes = () => {
@@ -29,6 +31,26 @@ const AppRoutes = () => {
             <ProtectedRoute>
               <Layout>
                 <Customers />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/qr-scanner"
+          element={
+            <ProtectedRoute>
+              <Layout>
+                <QRScanner />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+              <Route
+          path="/booth-assignment"
+          element={
+            <ProtectedRoute>
+              <Layout>
+                <BoothAssignment />
               </Layout>
             </ProtectedRoute>
           }
