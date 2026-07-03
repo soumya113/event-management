@@ -5,6 +5,10 @@ import { toast } from "react-toastify";
 
 import apiService from "../../api/apiService";
 import { apiPath } from "../../config/ApiPath";
+import {
+  generateQrCode,
+  generateQrImage,
+} from "../../utils/common";
 
 const statusOptions = [
   "Waiting",
@@ -49,26 +53,49 @@ const CustomerForm = ({ customer, onSuccess }) => {
   }, [customer, reset]);
 
   const onSubmit = async (data) => {
-    try {
-      if (customer?.id) {
-        await apiService.put(
-          apiPath.CUSTOMER_BY_ID(customer.id),
-          data
-        );
+  try {
+    let payload = { ...data };
 
-        toast.success("Customer updated successfully");
-      } else {
-        await apiService.post(apiPath.CUSTOMERS, data);
+    if (customer?.id) {
+      payload = {
+        ...payload,
+        qrCode: customer.qrCode,
+        qrImage: customer.qrImage,
+      };
 
-        toast.success("Customer added successfully");
-      }
+      await apiService.put(
+        apiPath.CUSTOMER_BY_ID(customer.id),
+        payload
+      );
 
-      onSuccess?.();
-    } catch (error) {
-      toast.error("Something went wrong");
-      console.error(error);
+      toast.success("Customer updated successfully");
+    } else {
+      const qrValue = generateQrCode();
+
+      const qrImage = await generateQrImage(qrValue);
+
+      payload = {
+        ...payload,
+        qrCode: qrValue,
+        qrImage,
+        qrUsed: false,
+        assignedBooth: null,
+      };
+
+      await apiService.post(
+        apiPath.CUSTOMERS,
+        payload
+      );
+
+      toast.success("Customer added successfully");
     }
-  };
+
+    onSuccess?.();
+  } catch (error) {
+    toast.error("Something went wrong");
+    console.error(error);
+  }
+};
 
   return (
     <Form id="customer-form" onSubmit={handleSubmit(onSubmit)}>
@@ -150,22 +177,6 @@ const CustomerForm = ({ customer, onSuccess }) => {
       </Row>
 
       <Row>
-        <Col md={6}>
-          <Form.Group className="mb-3">
-            <Form.Label>QR Code</Form.Label>
-
-            <Form.Control
-              {...register("qrCode", {
-                required: "QR Code is required",
-              })}
-            />
-
-            <small className="text-danger">
-              {errors.qrCode?.message}
-            </small>
-          </Form.Group>
-        </Col>
-
         <Col md={6}>
           <Form.Group className="mb-3">
             <Form.Label>Status</Form.Label>

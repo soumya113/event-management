@@ -34,21 +34,15 @@ const Sidebar = () => {
 
         </NavLink>
 
-        <NavLink to="/qr">
+        <NavLink to="/qr-scanner">
 
           <FaQrcode /> QR Scan
 
         </NavLink>
 
-        <NavLink to="/booth">
+        <NavLink to="/booth-assignment">
 
           <FaBuilding /> Booth
-
-        </NavLink>
-
-        <NavLink to="/status">
-
-          <FaTasks /> Status
 
         </NavLink>
 
