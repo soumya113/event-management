@@ -5,7 +5,7 @@ import ProtectedRoute from "./ProtectedRoute";
 import Login from "../pages/Login/Login";
 import Dashboard from "../pages/Dashboard/Dashboard";
 import Customers from "../pages/Customer/Customers";
-import QRScanner from "../pages/QRScanner/QRScanner";
+import QRScanner from "../pages/QrScanner/QRScanner";
 import BoothAssignment from "../pages/BoothAssignment/BoothAssignment"
 
 
